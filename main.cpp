@@ -16,13 +16,14 @@ int main()
 	try
 	{
 		TCPConnection connection;
-		connection.setHostName("www.example.com");
-		connection.setPort(80);
+		connection.setHostName("yandex.ru");
+		connection.setPort(443);
+		connection.setUseSSL(true);
 		connection.connect();
 
 		std::string request = 
 "GET / HTTP/1.1\n\
-Host: www.example.com\n\n";
+Host: yandex.ru\n\n";
 
 		std::string response;
 

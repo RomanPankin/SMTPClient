@@ -3,6 +3,9 @@
 #include <windows.h>
 #include <string>
 
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 
 /********************************************************************************
 * TCP Exception
@@ -16,7 +19,8 @@ public:
 		TCPCantConnect,
 		TCPCantWrite,
 		TCPCantRead,
-		TCPTimeout
+		TCPTimeout,
+		TCPSSLError
 	};
 
 	// Constructor and destructor 
@@ -80,4 +84,8 @@ private:
 
 	int writeTimeout;
 	int readTimeout;
+
+	// SSL
+	SSL_CTX * sslContext;
+	SSL* sslObject;
 };

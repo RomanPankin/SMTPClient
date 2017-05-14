@@ -1,8 +1,9 @@
 #include "..\Headers\TCPConnection.h"
 
+
 const int TCP_DEFAULT_PORT = 0;
-const int TCP_CONNECTION_READ_TIMEOUT = 1000;
-const int TCP_CONNECTION_WRITE_TIMEOUT = 1000;
+const int TCP_CONNECTION_READ_TIMEOUT = 4000;
+const int TCP_CONNECTION_WRITE_TIMEOUT = 4000;
 
 
 
@@ -27,6 +28,9 @@ TCPConnection::TCPConnection()
 
 	readTimeout = TCP_CONNECTION_READ_TIMEOUT;
 	writeTimeout = TCP_CONNECTION_WRITE_TIMEOUT;
+
+	sslContext = NULL;
+	sslObject = NULL;
 }
 
 TCPConnection::~TCPConnection()
@@ -61,12 +65,40 @@ void TCPConnection::connect()
 	}
 
 	checkWrite();
+
+	// SSL
+	if (useSSL) {
+		sslContext = SSL_CTX_new(SSLv23_client_method());
+		if (sslContext == NULL)
+			throw TCPException(TCPException::TCPSSLError);
+
+		sslObject = SSL_new(sslContext);
+		if (sslObject == NULL)
+			throw TCPException(TCPException::TCPSSLError);
+
+		SSL_set_fd(sslObject, (int)hSocket);
+		SSL_set_mode(sslObject, SSL_MODE_AUTO_RETRY);
+
+		while (true)
+		{
+			int sslResult = SSL_connect(sslObject);
+
+			int sslError = SSL_get_error(sslObject, sslResult);
+			if (sslError == SSL_ERROR_NONE) break;
+			if (sslError != SSL_ERROR_WANT_WRITE && sslError != SSL_ERROR_WANT_READ)
+				throw TCPException(TCPException::TCPSSLError);
+		}
+	}
 }
 
 void TCPConnection::disconnect()
 {
-	if (hSocket) closesocket(hSocket);
+	// SSL
+	if (sslContext) SSL_CTX_free(sslContext);
+	sslContext = NULL;
 
+	// Socket
+	if (hSocket) closesocket(hSocket);
 	hSocket = INVALID_SOCKET;
 }
 
@@ -126,9 +158,27 @@ void TCPConnection::sendData(std::string & data)
 	{
 		checkWrite();
 
-		int res = send(hSocket, sendingData, len, 0);
-		if (res == SOCKET_ERROR || res == 0)
-			throw TCPException(TCPException::TCPCantWrite);
+		int res = 0;
+
+		if (useSSL)
+		{
+			while (true)
+			{
+				res = SSL_write(sslObject, sendingData, len);
+				int sslError = SSL_get_error(sslObject, res);
+
+				if (sslError == SSL_ERROR_NONE) break;
+				if (sslError == SSL_ERROR_WANT_WRITE || sslError == SSL_ERROR_WANT_READ) continue;
+
+				throw TCPException(TCPException::TCPCantWrite);
+			}
+		}
+		else
+		{
+			res = send(hSocket, sendingData, len, 0);
+			if (res == SOCKET_ERROR || res == 0)
+				throw TCPException(TCPException::TCPCantWrite);
+		}
 
 		len -= res;
 		sendingData += res;
@@ -139,12 +189,26 @@ bool TCPConnection::readChar(char * result)
 {
 	checkRead();
 
-	int res = recv(hSocket, result, sizeof(char), 0);
-	if (res == 0) {
-		return false;
+	if (useSSL)
+	{
+		while (true)
+		{
+			int res = SSL_read(sslObject, result, sizeof(result[0]));
+			int sslError = SSL_get_error(sslObject, res);
+
+			if (sslError == SSL_ERROR_NONE) break;
+			if (sslError == SSL_ERROR_ZERO_RETURN) return false;
+			if (sslError == SSL_ERROR_WANT_WRITE || sslError == SSL_ERROR_WANT_READ) continue;
+
+			throw TCPException(TCPException::TCPCantRead);
+		}
 	}
-	if (res < 0)
-		throw TCPException(TCPException::TCPCantRead);
+	else
+	{
+		int res = recv(hSocket, result, sizeof(result[0]), 0);
+		if (res == 0) return false;
+		if (res < 0) throw TCPException(TCPException::TCPCantRead);
+	}
 
 	return true;
 }
@@ -195,9 +259,19 @@ void TCPConnection::initialize()
 		WSACleanup();
 		throw TCPException(TCPException::TCPCantInitialize);
 	}
+
+	// Initialize SSL
+	SSL_load_error_strings();
+	SSL_library_init();
+	OpenSSL_add_all_algorithms();
 }
 
 void TCPConnection::finalize()
 {
+	// Finalize SSL
+	ERR_free_strings();
+	EVP_cleanup();
+
+	// Finalize socket
 	WSACleanup();
 }
