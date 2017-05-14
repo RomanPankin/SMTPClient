@@ -1,39 +1,25 @@
-#include "SMTPClient.h"
-
-const int BUFFER_NAME_LENGTH = 255;
+#include "..\Headers\SMTPClient.h"
 
 
-/**
- * SMTP Exception
- */
-STMPException::STMPException(STMPException::SMTPExceptionType type)
-{
-	this->type = type;
-}
+const int SMTP_DEFAULT_PORT = 25;
 
 
-/**
+
+/********************************************************************************
 * SMTP Connection
-*/
+********************************************************************************/
 SMTPClient::SMTPClient()
 {
-	hSocket = NULL;
 }
 
 SMTPClient::~SMTPClient()
 {
 }
 
-void SMTPClient::connect(char * lpszServerName)
+void SMTPClient::connect()
 {
-	// Initialize socket library
-	WSADATA wsaData;
-	WORD wVer = MAKEWORD(2, 2);
-	if (WSAStartup(wVer, &wsaData) != NO_ERROR)
-		throw STMPException(STMPException::SMTPCantInitialize);
+}
 
-	// Receive host name
-	char hostname[BUFFER_NAME_LENGTH];
-	if (gethostname((char *)&hostname, BUFFER_NAME_LENGTH) == SOCKET_ERROR)
-		throw STMPException(STMPException::SMTPWrongHostName);
+void SMTPClient::disconnect()
+{
 }

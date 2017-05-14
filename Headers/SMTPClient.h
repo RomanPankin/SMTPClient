@@ -1,21 +1,11 @@
 #pragma once
 
-#include <windows.h>
+#include "TCPConnection.h"
 
 /**
 * SMTP Exception
 */
-class STMPException {
-public:
-	enum SMTPExceptionType {
-		SMTPCantInitialize,
-		SMTPWrongHostName
-	};
-
-	STMPException(STMPException::SMTPExceptionType type);
-
-private:
-	SMTPExceptionType type;
+class SMTPException : TCPException {
 };
 
 /**
@@ -27,9 +17,21 @@ public:
 	SMTPClient();
 	~SMTPClient();
 
+	// Properties
+	void setHostName(char * lpszHostName) { connection.setHostName(lpszHostName); };
+	void setHostName(std::string &hostName) { connection.setHostName(hostName); };
+	void setPort(int nPort) { connection.setPort(nPort); };
+	void setUseSSL(bool bUseSSL) { connection.setUseSSL(bUseSSL); };
+
+	const std::string& getHostName() const { return connection.getHostName(); };
+	int getPort() const { return connection.getPort(); };
+	bool getUseSSL() const { return connection.getUseSSL(); };
+
 	// Actions
-	void connect(char * lpszServerName);
+	void connect();
+	void disconnect();
 
 private:
-	HANDLE hSocket;
+	// Properties
+	TCPConnection connection;
 };
