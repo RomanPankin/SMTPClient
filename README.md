@@ -3,6 +3,7 @@
 ## Overview
 
 Implementation of the following protocols: TCP, POP3 (demo)
+Required: OpenSSL
 
 
 ## POP3 Connection
