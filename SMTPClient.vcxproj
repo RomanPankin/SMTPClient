@@ -146,12 +146,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Headers\SMTPClient.h" />
+    <ClInclude Include="Headers\POP3Connection.h" />
     <ClInclude Include="Headers\TCPConnection.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Sources\SMTPClient.cpp" />
+    <ClCompile Include="Sources\POP3Connection.cpp" />
     <ClCompile Include="Sources\TCPConnection.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

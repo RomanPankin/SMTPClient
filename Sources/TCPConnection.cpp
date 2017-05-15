@@ -1,19 +1,15 @@
+/**
+* @brief Class for TCP connection
+*
+* @file TCPConnection.cpp
+* @author Pankin Roman (romanpankin86@gmail.com)
+*
+*/
 #include "..\Headers\TCPConnection.h"
-
 
 const int TCP_DEFAULT_PORT = 0;
 const int TCP_CONNECTION_READ_TIMEOUT = 4000;
 const int TCP_CONNECTION_WRITE_TIMEOUT = 4000;
-
-
-
-/********************************************************************************
-* TCP Exception
-********************************************************************************/
-TCPException::TCPException(TCPException::TCPExceptionType type)
-{
-	this->type = type;
-}
 
 
 
@@ -45,49 +41,57 @@ void TCPConnection::connect()
 	if (host == NULL)
 		throw TCPException(TCPException::TCPWrongHostName);
 
-	SOCKADDR_IN addr;
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-	addr.sin_addr.s_addr = inet_addr(inet_ntoa(*(in_addr *)host->h_addr));
-
-	// Connection (non-blocking)
-	if ((hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
-		throw TCPException(TCPException::TCPCantInitializeSocket);
-
-	unsigned long iMode = 1;
-	int iResult = ioctlsocket(hSocket, FIONBIO, &iMode);
-
-	if (::connect(hSocket, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
+	try
 	{
-		if (WSAGetLastError() != WSAEWOULDBLOCK)
-			throw TCPException(TCPException::TCPCantConnect);
-	}
+		SOCKADDR_IN addr;
+		memset(&addr, 0, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_port = htons(port);
+		addr.sin_addr.s_addr = inet_addr(inet_ntoa(*(in_addr *)host->h_addr));
 
-	checkWrite();
+		// Connection
+		if ((hSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
+			throw TCPException(TCPException::TCPCantInitializeSocket);
 
-	// SSL
-	if (useSSL) {
-		sslContext = SSL_CTX_new(SSLv23_client_method());
-		if (sslContext == NULL)
-			throw TCPException(TCPException::TCPSSLError);
+		unsigned long iMode = 1;
+		int iResult = ioctlsocket(hSocket, FIONBIO, &iMode);
 
-		sslObject = SSL_new(sslContext);
-		if (sslObject == NULL)
-			throw TCPException(TCPException::TCPSSLError);
-
-		SSL_set_fd(sslObject, (int)hSocket);
-		SSL_set_mode(sslObject, SSL_MODE_AUTO_RETRY);
-
-		while (true)
+		if (::connect(hSocket, (LPSOCKADDR)&addr, sizeof(addr)) == SOCKET_ERROR)
 		{
-			int sslResult = SSL_connect(sslObject);
-
-			int sslError = SSL_get_error(sslObject, sslResult);
-			if (sslError == SSL_ERROR_NONE) break;
-			if (sslError != SSL_ERROR_WANT_WRITE && sslError != SSL_ERROR_WANT_READ)
-				throw TCPException(TCPException::TCPSSLError);
+			if (WSAGetLastError() != WSAEWOULDBLOCK)
+				throw TCPException(TCPException::TCPCantConnect);
 		}
+
+		checkWrite();
+
+		// SSL
+		if (useSSL) {
+			sslContext = SSL_CTX_new(SSLv23_client_method());
+			if (sslContext == NULL)
+				throw TCPException(TCPException::TCPSSLError);
+
+			sslObject = SSL_new(sslContext);
+			if (sslObject == NULL)
+				throw TCPException(TCPException::TCPSSLError);
+
+			SSL_set_fd(sslObject, (int)hSocket);
+			SSL_set_mode(sslObject, SSL_MODE_AUTO_RETRY);
+
+			while (true)
+			{
+				int sslResult = SSL_connect(sslObject);
+
+				int sslError = SSL_get_error(sslObject, sslResult);
+				if (sslError == SSL_ERROR_NONE) break;
+				if (sslError != SSL_ERROR_WANT_WRITE && sslError != SSL_ERROR_WANT_READ)
+					throw TCPException(TCPException::TCPSSLError);
+			}
+		}
+	} 
+	catch (TCPException & e)
+	{
+		disconnect();
+		throw e;
 	}
 }
 
@@ -102,6 +106,10 @@ void TCPConnection::disconnect()
 	hSocket = INVALID_SOCKET;
 }
 
+bool TCPConnection::isConnected() const
+{
+	return hSocket != INVALID_SOCKET;
+}
 
 void TCPConnection::checkRead()
 {
@@ -141,13 +149,13 @@ void TCPConnection::checkWrite()
 	int result = select(0, NULL, &fd_write, NULL, &Timeout);
 	if (result == SOCKET_ERROR)
 		throw TCPException(TCPException::TCPCantWrite);
-	else if (result == 0)
+	if (result == 0)
 		throw TCPException(TCPException::TCPTimeout);
 
 	FD_CLR(hSocket, &fd_write);
 }
 
-void TCPConnection::sendData(std::string & data)
+void TCPConnection::sendData(const std::string & data)
 {
 	if (data.length() == 0) return;
 
@@ -219,6 +227,7 @@ bool TCPConnection::readLine(std::string & data)
 
 	char cChar;
 	bool result = false;
+	bool wasR = false;
 
 	while (readChar(&cChar)) {
 		result = true;
@@ -226,7 +235,12 @@ bool TCPConnection::readLine(std::string & data)
 		if (cChar == '\n')
 			break;
 
-		data.append(1, cChar);
+		if (wasR)
+			data.append(1, '\r');
+
+		wasR = (cChar == '\r');
+		if (!wasR)
+			data.append(1, cChar);
 	}
 
 	return result;
@@ -234,13 +248,12 @@ bool TCPConnection::readLine(std::string & data)
 
 bool TCPConnection::readChars(std::string & data, int amount)
 {
+	data.clear();
+
 	char cChar;
 	bool result = false;
 
 	while (amount > 0 && readChar(&cChar)) {
-		if (cChar == '\n')
-			break;
-
 		data.append(1, cChar);
 
 		result = true;

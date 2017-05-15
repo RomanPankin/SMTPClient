@@ -1,12 +1,6 @@
-#include <stdio.h> /* printf, sprintf */
-#include <stdlib.h> /* exit */
-#include <string.h> /* memcpy, memset */
-#include <windows.h>
-#include <conio.h>  
-#include <ctype.h> 
-
-#include "Headers\TCPConnection.h"
-
+#include <iostream>
+#include <conio.h>
+#include "Headers\POP3Connection.h"
 
 
 int main()
@@ -15,46 +9,37 @@ int main()
 
 	try
 	{
-		TCPConnection connection;
-		connection.setHostName("yandex.ru");
-		connection.setPort(443);
-		connection.setUseSSL(true);
-		connection.connect();
+		POP3Connection connection;
+		connection.setHostName("mail.local");
+		connection.setPort(110);
+		connection.setUseSSL(false);
+		connection.connect("test@mail.local", "admin");
+		
+		// List of messages
+		std::vector<POP3MessageInfo> messages;
+		connection.list(messages);
 
-		std::string request = 
-"GET / HTTP/1.1\n\
-Host: yandex.ru\n\n";
-
-		std::string response;
-
-		connection.sendData(request);
-		printf("data sent\n");
-
-		while (connection.readLine(response))
+		std::vector<POP3MessageInfo>::iterator it = messages.begin();
+		while (it != messages.end())
 		{
-			printf("%s\n", response.c_str());
+			std::cout << "message #" << (*it).id << ", size " << (*it).size << " bytes\n";
+
+			// Read message
+			std::string message;
+			connection.readMessage((*it).id, message);
+			std::cout << message;
+
+			it++;
 		}
 	}
 	catch (TCPException &error)
 	{
-		printf("Error code %d\n", (int)error.getType());
+		std::cerr << "Exception: message=" << error.getMessage() << ", code=" << (int)error.getErrorType() << "\n";
 	}
 
-	/*try
-	{
+	TCPConnection::finalize();
 
-		SMTPClient smtpClient;
-		smtpClient.setHostName("www.example.com");
-		smtpClient.setPort(80);
-		smtpClient.connect();
-	}
-	catch (SMTPException &error)
-	{
-		printf("Error code %d\n", (int)error.getType());
-		printf("WSA Error %ld\n", WSAGetLastError());
-	}*/
-
-	printf("Press any key to exit\n");
+	std::cout << "Press any key to exit\n";
 	_getch();
 
     return 0;

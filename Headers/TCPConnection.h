@@ -1,3 +1,10 @@
+/**
+* @brief Class for TCP connection
+*
+* @file TCPConnection.h
+* @author Pankin Roman (romanpankin86@gmail.com)
+*
+*/
 #pragma once
 
 #include <windows.h>
@@ -13,24 +20,27 @@
 class TCPException {
 public:
 	enum TCPExceptionType {
-		TCPCantInitialize,
-		TCPWrongHostName,
-		TCPCantInitializeSocket,
-		TCPCantConnect,
-		TCPCantWrite,
-		TCPCantRead,
-		TCPTimeout,
-		TCPSSLError
+		TCPCantInitialize = 1,
+		TCPWrongHostName = 2,
+		TCPCantInitializeSocket = 3,
+		TCPCantConnect = 4,
+		TCPCantWrite = 5,
+		TCPCantRead = 6,
+		TCPTimeout = 7,
+		TCPSSLError = 8
 	};
 
 	// Constructor and destructor 
-	TCPException(TCPException::TCPExceptionType type);
+	TCPException(TCPException::TCPExceptionType type) : type(type) {};
+	TCPException(TCPException::TCPExceptionType type, std::string& message) : type(type), message(message) {};
 
 	// Properties
-	TCPExceptionType getType() const { return this->type; }
+	int getErrorType() const { return type; }
+	const std::string& getMessage() const { return message; }
 
 private:
 	TCPExceptionType type;
+	std::string message;
 };
 
 
@@ -58,16 +68,18 @@ public:
 	int getWriteTimeout() const { return writeTimeout; };
 	int getReadTimeout() const { return readTimeout; };
 
+	bool isConnected() const;
+
 	// Actions
-	void connect();
-	void disconnect();
+	void connect() throw(TCPException);
+	void disconnect() throw(TCPException);
 
-	bool readChar(char * result);
-	bool readLine(std::string & data);
-	bool readChars(std::string & data, int amount);
-	void sendData(std::string & data);
+	bool readChar(char * result) throw(TCPException);
+	bool readLine(std::string & data) throw(TCPException);
+	bool readChars(std::string & data, int amount) throw(TCPException);
+	void sendData(const std::string & data) throw(TCPException);
 
-	static void initialize();
+	static void initialize() throw(TCPException);
 	static void finalize();
 
 protected:
