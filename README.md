@@ -2,8 +2,9 @@
 
 ## POP3 Connection
 
+Implementation of the standard protocol for receiving e-mail.
+
 ```
-#!c#
 POP3Connection connection;
 connection.setHostName("mail.local");
 connection.setPort(110);
@@ -26,4 +27,17 @@ while (it != messages.end())
 
   it++;
 }
+```
+
+## TCP Connection
+
+Implementation of the basic protocol for all connections
+
+```
+TCPConnection connection;
+connection.setHostName("google.com");
+connection.setPort(80);
+connection.setUseSSL(true);
+connection.connect();
+connection.readLine();
 ```
