@@ -1,8 +1,14 @@
-# Simple TCP clinets
+# Simple TCP clients
+
+## Overview
+
+Implementation of the following protocols: TCP, POP3 (demo)
+
 
 ## POP3 Connection
 
-Implementation of the standard protocol for receiving e-mail.
+Implementation of the standard protocol for receiving e-mail. At the moment, part of the protocol commands are implemented.
+Tested on hMailServer.
 
 ```
 POP3Connection connection;
